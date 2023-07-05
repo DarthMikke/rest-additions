@@ -2,6 +2,7 @@ from django.http import HttpResponse, HttpRequest, JsonResponse
 from typing import Any
 from django.views import View
 
+
 def unimplemented(request, *args, **kwargs):
     return JsonResponse({"error": "Not yet implemented"}, status=501)
 
