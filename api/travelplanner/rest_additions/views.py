@@ -1,3 +1,4 @@
+import json
 from django.http import HttpResponse, HttpRequest, JsonResponse
 from typing import Any, Union
 from django.views import View
@@ -23,15 +24,22 @@ class BaseAPIView(View):
     links: Union[dict, None] = None
     """
     @var dict - links to include in the *_links* field in the HAL response
+    links: dict[str, tuple[str, dict[str, str]]]
     """
 
     def generate_links(self, *args, **kwargs):
-        return {
-            x: reverse(y[0], kwargs={
-                a: b.format(*args, **kwargs) for (a, b) in y[1].items()
-            })
-            for x, y in self.links.items()
-        }
+        try:
+            return {
+                x: reverse(y[0], kwargs={
+                    a: b.format(*args, **kwargs) for (a, b) in y[1].items()
+                })
+                for x, y in self.links.items()
+            }
+        except KeyError as e:
+            print(dir(e))
+            raise KeyError(f"\
+            An error occured. Check if the key {repr(e.args[0])} \
+            exists in URL args/kwargs, or if the link definition is a tuple.")
 
 
 class CRUDView(BaseAPIView):
@@ -44,6 +52,8 @@ class CRUDView(BaseAPIView):
     """
     @var ModelBase - instance of the model
     """
+
+    notFound = JsonResponse({"error": "Not found"}, status=404)
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         super().setup(request, *args, **kwargs)
@@ -75,13 +85,87 @@ class CRUDView(BaseAPIView):
         return unimplemented()
 
     def put(self, request, *args, **kwargs):
-        return unimplemented()
+        # Check if every defined field exists in the request
+        # @TODO: Move field validation to a separate deserializer
+        parsed_body = json.loads(request.body)
+
+        for field in self.model.SerializerMeta.deserializer_fields:
+            if type(field) is tuple:
+                field = field[0]
+            if field not in parsed_body.keys():
+                raise KeyError(f"Required value {field} is not provided.")
+        # Check if every field provided in request exists in the model definition
+        for field in parsed_body.keys():
+            put_fields = [x[0] if (type(x) is tuple) else x for x in self.put_fields]
+            if field not in put_fields:
+                raise KeyError(f"Provided value {field} is not defined.")
+        
+        # Overwrite
+        try:
+            for field in self.model.SerializerMeta.deserializer_fields:
+                if type(field) == tuple:
+                    (keyword, transform) = field
+                    parsed_body[keyword] = transform(parsed_body[keyword])
+            instance = self.model(**parsed_body)
+        except Exception as e:
+            return JsonResponse({"error": repr(e)}, status=422)
+        
+        # Save the instance
+        try:
+            instance.save()
+        except Exception as e:
+            return JsonResponse({"error": repr(e)}, status=500)
+
+        # Return 204
+        return HttpResponse(None, status=204)
 
     def patch(self, request, *args, **kwargs):
-        return unimplemented()
+        # Retrieve instance or 404
+        if not self.instance:
+            return self.notFound
+        
+        parsed_body = json.loads(request.body)
+        
+        # Check if every field provided in request exists in the model definition
+        for field in parsed_body.keys():
+            if field not in self.writable_fields:
+                raise KeyError(f"Provided value {field} is not defined.")
+        
+        for field in self.model.SerializerMeta.deserializer_fields:
+            if field not in parsed_body.keys():
+                continue
+            if type(field) == tuple:
+                (keyword, transform) = field
+                parsed_body[keyword] = transform(parsed_body[keyword])
+        # Overwrite
+        for field in parsed_body.keys():
+            try:
+                self.instance.__setattr__(field, parsed_body[field])
+            except Exception as e:
+                raise KeyError(f"Provided value {field} is not defined.")
+        
+        # Save the instance
+        try:
+            self.instance.save()
+        except Exception as e:
+            return JsonResponse({"error": repr(e)}, status=500)
+
+        # Return 204
+        return HttpResponse(None, status=204)
 
     def delete(self, request, *args, **kwargs):
-        return unimplemented()
+        # Retrieve instance or 404
+        if not self.instance:
+            return self.notFound
+
+        # Delete the instance
+        try:
+            self.instance.delete()
+        except Exception as e:
+            return JsonResponse({"error": repr(e)}, status=500)
+
+        return HttpResponse(None, status=204)
+
 
 
 class ListView(BaseAPIView):
@@ -131,7 +215,9 @@ class ListView(BaseAPIView):
                     url_identifier = identifier
                     model_identifier = identifier
                 
-                if url_identifier in kwargs.keys():
+                if url_identifier == 'USERID':
+                    partial_query[model_identifier] = request.user.id
+                elif url_identifier in kwargs.keys():
                     partial_query[model_identifier] = kwargs[url_identifier]
                 
                 if partial_query:
@@ -139,6 +225,7 @@ class ListView(BaseAPIView):
                         if filter_query is not None else Q(**partial_query)
         
         try:
+            print(filter_query)
             self.instances = self.model.objects.filter(filter_query)
             self.total = self.instances.count()
             if self.total > self.per_page:
