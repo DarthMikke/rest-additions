@@ -9,30 +9,41 @@ def unimplemented(request, *args, **kwargs):
     return JsonResponse({"error": "Not yet implemented"}, status=501)
 
 
-class CRUDView(View):
-    """
-    If method is GET, PATCH, DELETE, set self.instance to the instance of the
-    model the user is trying to get.
-    """
-    
+class BaseAPIView(View):
     model = ...
     """
     @var ModelBase - model this view refers to
     """
 
-    instance = ...
-    """
-    @var ModelBase - instance of the model
-    """
-
     identifiers: list = ...
     """
-    @var list - list of tuples with URL query variable and model field name
+    @var list[list[tuple[str, dict]]] - list of tuples with URL query variable and model field name
     """
 
     links: Union[dict, None] = None
     """
     @var dict - links to include in the *_links* field in the HAL response
+    """
+
+    def generate_links(self, *args, **kwargs):
+        return {
+            x: reverse(y[0], kwargs={
+                a: b.format(*args, **kwargs) for (a, b) in y[1].items()
+            })
+            for x, y in self.links.items()
+        }
+
+
+
+class CRUDView(BaseAPIView):
+    """
+    If method is GET, PATCH, DELETE, set self.instance to the instance of the
+    model the user is trying to get.
+    """
+
+    instance = ...
+    """
+    @var ModelBase - instance of the model
     """
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
@@ -57,10 +68,7 @@ class CRUDView(View):
     def get(self, request, *args, **kwargs):
         response = self.instance.serialize()
         if self.links is not None:
-            response["_links"] = {
-                x: reverse(y[0], kwargs=dict(kwargs, **y[1]))
-                for x, y in self.links.items()
-            }
+            response["_links"] = self.generate_links(*args, **kwargs)
 
         return JsonResponse(response)
 
@@ -77,30 +85,15 @@ class CRUDView(View):
         return unimplemented()
 
 
-class ListView(View):
+class ListView(BaseAPIView):
     """
     If method is GET, set self.instances to the list of the instances of the
     model the user is trying to get.
-    """
-    
-    model = ...
-    """
-    @var ModelBase - model this view refers to
     """
 
     instances = ...
     """
     @var list[ModelBase] - instance of the model
-    """
-
-    identifiers: list = ...
-    """
-    @var list[list[tuple]] - list of tuples with URL query variable and model field name
-    """
-
-    links: Union[dict, None] = None
-    """
-    @var dict - links to include in the *_links* field in the HAL response
     """
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
@@ -135,9 +128,8 @@ class ListView(View):
                 x.serialize() for x in self.instances
             ]
         }
-
         if self.links is not None:
-            response["_links"] = self.links
+            response["_links"] = self.generate_links(*args, **kwargs)
         
         return JsonResponse(response)
 
