@@ -2,6 +2,9 @@ from django.http import HttpResponse
 from typing import Union
 
 class PublicPermissions:
+    def __init__(self, view):
+        self.view = view
+    
     def get(self, *_, **__) -> Union[HttpResponse, bool]:
         return True
     
