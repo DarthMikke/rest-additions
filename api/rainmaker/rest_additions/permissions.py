@@ -20,6 +20,9 @@ class PublicPermissions:
 
 class NotFoundPermissions:
     notFound = HttpResponse("Not found", status=404)
+    
+    def __init__(self, view):
+        self.view = view
 
     def get(self, *_, **__) -> Union[HttpResponse, bool]:
         return self.notFound
@@ -39,9 +42,14 @@ class NotFoundPermissions:
 
 class AuthMixin:
     # Default permission is that all routes are public.
-    permission = PublicPermissions()
+    permission = None
 
     def dispatch(self, request, *args, **kwargs):
+        try:
+            self.permission = self.permission(self)
+        except Exception as e:
+            raise e
+
         try:
             permission_checker = self.permission.__getattribute__(request.method.lower())
         except Exception as e:
