@@ -1,6 +1,8 @@
 from django.http import HttpResponse, HttpRequest, JsonResponse
-from typing import Any
+from typing import Any, Union
 from django.views import View
+from django.db.models import Q
+from django.urls import reverse
 
 
 def unimplemented(request, *args, **kwargs):
@@ -28,6 +30,11 @@ class CRUDView(View):
     @var list - list of tuples with URL query variable and model field name
     """
 
+    links: Union[dict, None] = None
+    """
+    @var dict - links to include in the *_links* field in the HAL response
+    """
+
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         super().setup(request, *args, **kwargs)
         
@@ -48,7 +55,14 @@ class CRUDView(View):
             return JsonResponse({"original_exception": repr(e)}, status=404)
 
     def get(self, request, *args, **kwargs):
-        return JsonResponse(self.instance.serialize())
+        response = self.instance.serialize()
+        if self.links is not None:
+            response["_links"] = {
+                x: reverse(y[0], kwargs=dict(kwargs, **y[1]))
+                for x, y in self.links.items()
+            }
+
+        return JsonResponse(response)
 
     def post(self, request, *args, **kwargs):
         return unimplemented()
