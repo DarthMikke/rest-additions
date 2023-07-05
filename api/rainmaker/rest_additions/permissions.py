@@ -43,7 +43,7 @@ class AuthMixin:
 
     def dispatch(self, request, *args, **kwargs):
         try:
-            permission_checker = self.permission.__getattribute__(request.method)
+            permission_checker = self.permission.__getattribute__(request.method.lower())
         except Exception as e:
             raise e
         
