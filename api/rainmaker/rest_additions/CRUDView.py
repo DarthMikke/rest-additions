@@ -27,7 +27,7 @@ class CRUDView(View):
     @var list - list of tuples with URL query variable and model field name
     """
 
-    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+    def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         model_kwargs = {}
         for identifier in self.identifiers:
             if (isinstance(identifier, tuple)):
@@ -44,7 +44,7 @@ class CRUDView(View):
         except Exception as e:
             return JsonResponse({"original_exception": repr(e)}, status=404)
 
-        return super().dispatch(request, *args, **kwargs)
+        return super().setup(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
         return JsonResponse(self.instance.serialize())
