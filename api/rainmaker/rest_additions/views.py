@@ -34,7 +34,6 @@ class BaseAPIView(View):
         }
 
 
-
 class CRUDView(BaseAPIView):
     """
     If method is GET, PATCH, DELETE, set self.instance to the instance of the
@@ -93,8 +92,30 @@ class ListView(BaseAPIView):
 
     instances = ...
     """
-    @var list[ModelBase] - instance of the model
+    @var list[ModelBase] - instances of the model.
     """
+
+    paginated = False
+    """
+    @var bool - whether to add pagination info to the response or not.
+    """
+
+    total = ...
+
+    per_page = 20
+    
+    def generate_links(self, *args, **kwargs):
+        links = super().generate_links(*args, **kwargs)
+
+        if self.paginated:
+            links = dict(links, **{
+                'first': '',
+                'prev': '',
+                'next': '',
+                'final': '',
+            })
+        
+        return links
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         super().setup(request, *args, **kwargs)
@@ -119,17 +140,30 @@ class ListView(BaseAPIView):
         
         try:
             self.instances = self.model.objects.filter(filter_query)
+            self.total = self.instances.count()
+            if self.total > self.per_page:
+                self.paginated = True
+                self.page = int(request.GET['page']) if 'page' in request.GET else 1
+                first = (self.page - 1)*self.per_page
+                last = min(first + self.per_page, self.instances.count())
+                self.instances = self.instances.all()[first:last]
         except Exception as e:
             return JsonResponse({"original_exception": repr(e)}, status=404)
     
     def get(self, request, *args, **kwargs):
+        print(repr(request.GET))
+        items = [x.serialize() for x in self.instances]
         response = {
-            'items': [
-                x.serialize() for x in self.instances
-            ]
+            'count': len(items),
+            'items': items,
         }
+        if self.paginated:
+            response['total'] = self.total
+            response['offset'] = self.page * self.per_page
         if self.links is not None:
             response["_links"] = self.generate_links(*args, **kwargs)
+        
+        print(response)
         
         return JsonResponse(response)
 
