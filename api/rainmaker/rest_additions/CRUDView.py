@@ -29,6 +29,8 @@ class CRUDView(View):
     """
 
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        super().setup(request, *args, **kwargs)
+        
         model_kwargs = {}
         for identifier in self.identifiers:
             if (isinstance(identifier, tuple)):
@@ -44,8 +46,6 @@ class CRUDView(View):
             self.instance = self.model.objects.get(**model_kwargs)
         except Exception as e:
             return JsonResponse({"original_exception": repr(e)}, status=404)
-
-        return super().setup(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
         return JsonResponse(self.instance.serialize())
