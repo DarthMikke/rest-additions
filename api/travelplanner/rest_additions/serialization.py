@@ -18,7 +18,7 @@ class SerializableMixin:
             serialized[field] = value
         
         try:
-            meta = self.SerializerMeta.meta_fields
+            meta = self.serializer_meta_fields
         except Exception as e:
             meta = []
         for field in meta:
