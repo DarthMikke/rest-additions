@@ -241,7 +241,6 @@ class ListView(BaseAPIView):
                         if filter_query is not None else Q(**partial_query)
         
         try:
-            print(filter_query)
             self.instances = self.model.objects.filter(filter_query)
             self.total = self.instances.count()
             if self.total > self.per_page:
@@ -254,7 +253,6 @@ class ListView(BaseAPIView):
             return JsonResponse({"original_exception": repr(e)}, status=404)
     
     def get(self, request, *args, **kwargs):
-        print(repr(request.GET))
         items = [x.serialize() for x in self.instances]
         response = {
             'count': len(items),
