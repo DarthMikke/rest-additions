@@ -186,6 +186,10 @@ class ListView(BaseAPIView):
 
     total = ...
 
+    identifiers = ...
+    """
+    @var list[] - list of identifiers to filter by, with values
+    """
     per_page = 20
     
     def generate_links(self, *args, **kwargs):
@@ -205,7 +209,13 @@ class ListView(BaseAPIView):
         super().setup(request, *args, **kwargs)
 
         filter_query = None
+
+        if not type(self.identifiers) == list:
+            raise TypeError("ListView.identifier has to be a list of lists.")
+
         for query in self.identifiers:
+            if not type(query) == list:
+                raise TypeError("ListView.identifier has to be a list of lists.")
             for identifier in query:
                 partial_query = {}
 
