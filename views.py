@@ -190,6 +190,12 @@ class ListView(BaseAPIView):
     """
     @var list[] - list of identifiers to filter by, with values
     """
+
+    embedded = ...
+    """
+    @var dict - dictionary of items to include in the _embed field of the response
+    """
+
     per_page = 20
     
     def generate_links(self, *args, **kwargs):
@@ -259,6 +265,8 @@ class ListView(BaseAPIView):
             response['offset'] = self.page * self.per_page
         if self.links is not None:
             response["_links"] = self.generate_links(*args, **kwargs)
+        if type(self.embedded) == dict:
+            response["_embedded"] = self.embedded
         
         print(response)
         
