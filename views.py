@@ -214,6 +214,9 @@ class ListView(BaseAPIView):
     def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         super().setup(request, *args, **kwargs)
 
+        # for queryvar in request.GET.keys():
+        #     kwargs[queryvar] = request.GET[queryvar]
+
         filter_query = None
 
         if not type(self.identifiers) == list:
