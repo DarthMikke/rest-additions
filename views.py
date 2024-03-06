@@ -13,12 +13,12 @@ def unimplemented(request, *args, **kwargs):
 class BaseAPIView(View):
     model = ...
     """
-    @var ModelBase - model this view refers to
+    `django.ModelBase` - model this view refers to
     """
 
     identifiers: list = ...
     """
-    @var list[list[tuple[str, dict]]] - list of tuples with URL query variable and model field name
+    `list[list[tuple[str, dict]]]` - list of tuples with URL query variable and model field name
     """
 
     links: Union[dict, None] = None
