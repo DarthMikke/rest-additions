@@ -11,23 +11,44 @@ def unimplemented(request, *args, **kwargs):
 
 
 class BaseAPIView(View):
+    """
+    Base class for serializing views, containing common parameters of child
+    classes `CRUDView` and `ListView`.
+    """
+
     model = ...
     """
-    `django.ModelBase` - model this view refers to
+    `django.ModelBase` -- model this view refers to
     """
 
     identifiers: list = ...
     """
-    `list[list[tuple[str, dict]]]` - list of tuples with URL query variable and model field name
+    `list[list[tuple[str, dict]]]`) -- Description of how the model is to
+    be retrieved from the database. This parameter is a list of tuples with
+    URL query variable and model field name.
     """
 
     links: Union[dict, None] = None
     """
-    @var dict - links to include in the *_links* field in the HAL response
+    `dict[str, tuple[str, dict[str, str]]]` -- links to include in the *_links*
+    field in the HAL response
     links: dict[str, tuple[str, dict[str, str]]]
+
+    dict with string keys and tuple definitions.
+
+    Each link is defined by a tuple containing:
+    - the Django view name as the first element
+    - as the second element, dict with django URL parameter names
+      as keys and parameter values as dict values. 
     """
 
     def generate_links(self, *args, **kwargs):
+        """
+        Generate links based on the self.links parameter, for use in
+        HAL `links` object.
+
+        See self.links for valid link definitions.
+        """
         try:
             return {
                 x: reverse(y[0], kwargs={
@@ -50,7 +71,7 @@ class CRUDView(BaseAPIView):
 
     instance = ...
     """
-    @var ModelBase - instance of the model
+    ModelBase - instance of the model
     """
 
     notFound = JsonResponse({"error": "Not found"}, status=404)
@@ -165,7 +186,6 @@ class CRUDView(BaseAPIView):
             return JsonResponse({"error": repr(e)}, status=500)
 
         return HttpResponse(None, status=204)
-
 
 
 class ListView(BaseAPIView):
