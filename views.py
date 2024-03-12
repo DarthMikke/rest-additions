@@ -1,5 +1,6 @@
 import json
 from django.http import HttpResponse, HttpRequest, JsonResponse
+import django.db.models
 from typing import Any, Union
 from django.views import View
 from django.db.models import Q
@@ -16,9 +17,8 @@ class BaseAPIView(View):
     classes `CRUDView` and `ListView`.
     """
 
-    model = ...
-    """
-    `django.ModelBase` -- model this view refers to
+    model: django.db.models.Model = ...
+    """model this view refers to
     """
 
     identifiers: list = ...
@@ -37,9 +37,9 @@ class BaseAPIView(View):
     dict with string keys and tuple definitions.
 
     Each link is defined by a tuple containing:
-    - the Django view name as the first element
-    - as the second element, dict with django URL parameter names
-      as keys and parameter values as dict values. 
+        - the Django view name as the first element
+        - as the second element, dict with django URL parameter names
+          as keys and parameter values as dict values. 
     """
 
     def generate_links(self, *args, **kwargs):
@@ -64,19 +64,24 @@ class BaseAPIView(View):
 
 
 class CRUDView(BaseAPIView):
-    """
-    If method is GET, PATCH, DELETE, set self.instance to the instance of the
-    model the user is trying to get.
+    """Endpoint implementing CRUD operations on models matching the query.
+
+    Supported methods are `GET`, `PUT`, `PATCH`, `DELETE`.
     """
 
-    instance = ...
-    """
-    ModelBase - instance of the model
+    instance: django.db.models.Model = ...
+    """`django.db.models.Model` - instance of the model
     """
 
     notFound = JsonResponse({"error": "Not found"}, status=404)
 
-    def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+    def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        """Set up `self.instance`.
+
+        Sets up the view according to the `identifiers` object, `request`, and
+        URL arguments.
+        """
+
         super().setup(request, *args, **kwargs)
         
         model_kwargs = {}
@@ -95,17 +100,18 @@ class CRUDView(BaseAPIView):
         except Exception as e:
             return JsonResponse({"original_exception": repr(e)}, status=404)
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
         response = self.instance.serialize()
         if self.links is not None:
             response["_links"] = self.generate_links(*args, **kwargs)
 
         return JsonResponse(response)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
+        """Unimplemented."""
         return unimplemented()
 
-    def put(self, request, *args, **kwargs):
+    def put(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
         # Check if every defined field exists in the request
         # @TODO: Move field validation to a separate deserializer
         parsed_body = json.loads(request.body)
@@ -140,7 +146,7 @@ class CRUDView(BaseAPIView):
         # Return 204
         return HttpResponse(None, status=204)
 
-    def patch(self, request, *args, **kwargs):
+    def patch(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
         # Retrieve instance or 404
         if not self.instance:
             return self.notFound
@@ -174,7 +180,7 @@ class CRUDView(BaseAPIView):
         # Return 204
         return HttpResponse(None, status=204)
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
         # Retrieve instance or 404
         if not self.instance:
             return self.notFound
@@ -189,34 +195,31 @@ class CRUDView(BaseAPIView):
 
 
 class ListView(BaseAPIView):
-    """
-    If method is GET, set self.instances to the list of the instances of the
-    model the user is trying to get.
+    """Set self.instances to the list of the instances of the
+    `model` that match the user's query.
+
+    Allowed methods: `GET`.
     """
 
-    instances = ...
-    """
-    @var list[ModelBase] - instances of the model.
+    instances: "list[django.db.models.Model]" = ...
+    """instances of the model"""
+
+    paginated: bool = False
+    """whether to add pagination info to the response or not"""
+
+    total: int = ...
+    """number of total instances matching the query"""
+
+    identifiers: list = ...
+    """list of identifiers to filter by, with values
     """
 
-    paginated = False
-    """
-    @var bool - whether to add pagination info to the response or not.
-    """
-
-    total = ...
-
-    identifiers = ...
-    """
-    @var list[] - list of identifiers to filter by, with values
-    """
-
-    embedded = ...
-    """
-    @var dict - dictionary of items to include in the _embed field of the response
+    embedded: dict = ...
+    """dictionary of items to include in the _embed field of the response
     """
 
     per_page = 20
+
     
     def generate_links(self, *args, **kwargs):
         links = super().generate_links(*args, **kwargs)
@@ -231,7 +234,7 @@ class ListView(BaseAPIView):
         
         return links
 
-    def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+    def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         super().setup(request, *args, **kwargs)
 
         filter_query = None
