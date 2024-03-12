@@ -293,3 +293,49 @@ class ListView(BaseAPIView):
         
         return JsonResponse(response)
 
+
+class TemplateView(BaseAPIView):
+    """Retrieve an object from the database based on the URL query, and render
+    a template with it.
+    """
+
+    instance: "django.db.models.Model" = ...
+    """instance of the model
+    """
+
+    notFound = JsonResponse({"error": "Not found"}, status=404)
+    """Response to serve in case no object instance corresponds to the query. 
+    """
+
+    def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        """Set up `self.instance`.
+
+        Sets up the view according to the `identifiers` object, `request`, and
+        URL arguments.
+        """
+
+        super().setup(request, *args, **kwargs)
+        
+        model_kwargs = {}
+        for identifier in self.identifiers:
+            if (isinstance(identifier, tuple)):
+                (url_identifier, model_identifier) = identifier
+            else:
+                url_identifier = identifier
+                model_identifier = identifier
+            
+            if url_identifier in kwargs.keys():
+                model_kwargs[model_identifier] = kwargs[url_identifier]
+        
+        try:
+            self.instance = self.model.objects.get(**model_kwargs)
+        except Exception as e:
+            return JsonResponse({"original_exception": repr(e)}, status=404)
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
+        response = self.instance.serialize()
+        if self.links is not None:
+            response["_links"] = self.generate_links(*args, **kwargs)
+
+        return JsonResponse(response)
+
