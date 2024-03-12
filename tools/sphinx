@@ -1,0 +1,123 @@
+#! /usr/bin/env bash
+
+if [[ $(pwd | awk -F\/ '{print $NF}') == "tools" ]] ; then  cd ..; fi
+
+mkdir tmp
+cd tmp
+
+python -m venv venv
+source venv/bin/activate
+pip3 install sphinx myst-parser "django>4.2"
+
+if [[ ! -d dummy ]]; then
+django-admin startproject dummy
+fi
+rm -r dummy/rest_additions
+mkdir -p dummy/rest_additions
+cp ../*.py dummy/rest_additions/
+
+cd dummy
+
+
+# sphinx-quickstart docs
+mkdir -p docs/source
+mkdir -p docs/build
+
+cat > docs/Makefile << "EOF"
+# Minimal makefile for Sphinx documentation
+#
+
+# You can set these variables from the command line, and also
+# from the environment for the first two.
+SPHINXOPTS    ?=
+SPHINXBUILD   ?= sphinx-build
+SOURCEDIR     = source
+BUILDDIR      = ../../../docs
+
+# Put it first so that "make" without argument is like "make help".
+help:
+	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+.PHONY: help Makefile
+
+# Catch-all target: route all unknown targets to Sphinx using the new
+# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
+%: Makefile
+	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+EOF
+
+cat > docs/source/conf.py << "EOF"
+# Configuration file for the Sphinx documentation builder.
+# https://www.sphinx-doc.org/en/master/usage/configuration.html
+
+# https://www.freecodecamp.org/news/sphinx-for-django-documentation-2454e924b3bc/
+import sys
+import django
+import os
+
+sys.path.insert(0, os.path.abspath('../..'))
+os.environ['DJANGO_SETTINGS_MODULE'] = 'dummy.settings'
+django.setup()
+
+project = 'REST additions'
+copyright = '2024, Michal Jan Warecki'
+author = 'Michal Jan Warecki'
+
+extensions = [
+    'sphinx.ext.duration',
+    'sphinx.ext.doctest',
+    'sphinx.ext.autodoc',
+    # Parse Markdown files
+    'myst_parser',
+]
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.txt': 'markdown',
+    '.md': 'markdown',
+}
+
+templates_path = ['_templates']
+exclude_patterns = []
+
+html_theme = 'alabaster'
+html_static_path = ['_static']
+EOF
+
+mkdir docs/_static
+mkdir docs/_templates
+
+cat > docs/source/index.rst << "EOF"
+.. REST additions documentation master file, created by sphinx-quickstart on Mon Mar 11 20:29:06 2024. You can adapt this file completely to your liking, but it should at least contain the root toctree directive.
+
+Welcome to REST additions's documentation!
+==========================================
+
+.. toctree::
+   :maxdepth: 2
+
+
+Permissions
+-----------
+.. automodule:: rest_additions.permissions
+  :members:
+  :undoc-members:
+
+
+Serialization
+-------------
+.. automodule:: rest_additions.serialization
+  :members:
+  :undoc-members:
+
+
+Views
+-----
+.. automodule:: rest_additions.views
+  :members:
+  :undoc-members:
+EOF
+
+cd docs
+make html
+deactivate
