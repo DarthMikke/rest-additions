@@ -5,6 +5,7 @@ from typing import Any, Union
 from django.views import View
 from django.db.models import Q
 from django.urls import reverse
+from django.shortcuts import render
 
 
 def unimplemented(request, *args, **kwargs):
@@ -307,6 +308,10 @@ class TemplateView(BaseAPIView):
     """Response to serve in case no object instance corresponds to the query. 
     """
 
+    template: str
+    """Template name to use for this view.
+    """
+
     def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         """Set up `self.instance`.
 
@@ -332,10 +337,10 @@ class TemplateView(BaseAPIView):
         except Exception as e:
             return JsonResponse({"original_exception": repr(e)}, status=404)
 
-    def get(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
-        response = self.instance.serialize()
-        if self.links is not None:
-            response["_links"] = self.generate_links(*args, **kwargs)
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        response = render(request, self.template, {
+            "model": self.instance
+        })
 
-        return JsonResponse(response)
+        return response
 
