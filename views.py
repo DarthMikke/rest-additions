@@ -5,6 +5,7 @@ from typing import Any, Union
 from django.views import View
 from django.db.models import Q
 from django.urls import reverse
+from django.shortcuts import render
 
 
 def unimplemented(request, *args, **kwargs):
@@ -292,4 +293,54 @@ class ListView(BaseAPIView):
         print(response)
         
         return JsonResponse(response)
+
+
+class TemplateView(BaseAPIView):
+    """Retrieve an object from the database based on the URL query, and render
+    a template with it.
+    """
+
+    instance: "django.db.models.Model" = ...
+    """instance of the model
+    """
+
+    notFound = HttpResponse("Not found.", status=404)
+    """Response to serve in case no object instance corresponds to the query. 
+    """
+
+    template: str
+    """Template name to use for this view.
+    """
+
+    def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        """Set up `self.instance`.
+
+        Sets up the view according to the `identifiers` object, `request`, and
+        URL arguments.
+        """
+
+        super().setup(request, *args, **kwargs)
+        
+        model_kwargs = {}
+        for identifier in self.identifiers:
+            if (isinstance(identifier, tuple)):
+                (url_identifier, model_identifier) = identifier
+            else:
+                url_identifier = identifier
+                model_identifier = identifier
+            
+            if url_identifier in kwargs.keys():
+                model_kwargs[model_identifier] = kwargs[url_identifier]
+        
+        try:
+            self.instance = self.model.objects.get(**model_kwargs)
+        except Exception as e:
+            return self.notFound
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        response = render(request, self.template, {
+            "model": self.instance
+        })
+
+        return response
 
