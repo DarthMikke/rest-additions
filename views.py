@@ -304,7 +304,7 @@ class TemplateView(BaseAPIView):
     """instance of the model
     """
 
-    notFound = JsonResponse({"error": "Not found"}, status=404)
+    notFound = HttpResponse("Not found.", status=404)
     """Response to serve in case no object instance corresponds to the query. 
     """
 
@@ -335,7 +335,7 @@ class TemplateView(BaseAPIView):
         try:
             self.instance = self.model.objects.get(**model_kwargs)
         except Exception as e:
-            return JsonResponse({"original_exception": repr(e)}, status=404)
+            return self.notFound
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         response = render(request, self.template, {
