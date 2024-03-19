@@ -12,7 +12,7 @@ def unimplemented(request, *args, **kwargs):
     return JsonResponse({"error": "Not yet implemented"}, status=501)
 
 
-class BaseAPIView(View):
+class APIViewBase(View):
     """
     Base class for serializing views, containing common parameters of child
     classes `CRUDView` and `ListView`.
@@ -64,18 +64,7 @@ class BaseAPIView(View):
             exists in URL args/kwargs, or if the link definition is a tuple.")
 
 
-class CRUDView(BaseAPIView):
-    """Endpoint implementing CRUD operations on models matching the query.
-
-    Supported methods are `GET`, `PUT`, `PATCH`, `DELETE`.
-    """
-
-    instance: django.db.models.Model = ...
-    """`django.db.models.Model` - instance of the model
-    """
-
-    notFound = JsonResponse({"error": "Not found"}, status=404)
-
+class SingleViewBase(APIViewBase):
     def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         """Set up `self.instance`.
 
@@ -99,7 +88,63 @@ class CRUDView(BaseAPIView):
         try:
             self.instance = self.model.objects.get(**model_kwargs)
         except Exception as e:
+            return self.notFound
+
+
+class ListViewBase(APIViewBase):
+    def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        super().setup(request, *args, **kwargs)
+
+        filter_query = None
+
+        if not type(self.identifiers) == list:
+            raise TypeError("ListView.identifier has to be a list of lists.")
+
+        for query in self.identifiers:
+            if not type(query) == list:
+                raise TypeError("ListView.identifier has to be a list of lists.")
+            for identifier in query:
+                partial_query = {}
+
+                if (isinstance(identifier, tuple)):
+                    (url_identifier, model_identifier) = identifier
+                else:
+                    url_identifier = identifier
+                    model_identifier = identifier
+                
+                if url_identifier == 'USERID':
+                    partial_query[model_identifier] = request.user.id
+                elif url_identifier in kwargs.keys():
+                    partial_query[model_identifier] = kwargs[url_identifier]
+                
+                if partial_query:
+                    filter_query = (filter_query | Q(**partial_query)) \
+                        if filter_query is not None else Q(**partial_query)
+        
+        try:
+            self.instances = self.model.objects.filter(filter_query)
+            self.total = self.instances.count()
+            if self.total > self.per_page:
+                self.paginated = True
+                self.page = int(request.GET['page']) if 'page' in request.GET else 1
+                first = (self.page - 1)*self.per_page
+                last = min(first + self.per_page, self.instances.count())
+                self.instances = self.instances.all()[first:last]
+        except Exception as e:
             return JsonResponse({"original_exception": repr(e)}, status=404)
+
+
+class CRUDView(SingleViewBase):
+    """Endpoint implementing CRUD operations on models matching the query.
+
+    Supported methods are `GET`, `PUT`, `PATCH`, `DELETE`.
+    """
+
+    instance: django.db.models.Model = ...
+    """`django.db.models.Model` - instance of the model
+    """
+
+    notFound = JsonResponse({"error": "Not found"}, status=404)
 
     def get(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
         response = self.instance.serialize()
@@ -195,7 +240,7 @@ class CRUDView(BaseAPIView):
         return HttpResponse(None, status=204)
 
 
-class ListView(BaseAPIView):
+class ListView(ListViewBase):
     """Set self.instances to the list of the instances of the
     `model` that match the user's query.
 
@@ -221,7 +266,6 @@ class ListView(BaseAPIView):
 
     per_page = 20
 
-    
     def generate_links(self, *args, **kwargs):
         links = super().generate_links(*args, **kwargs)
 
@@ -234,47 +278,6 @@ class ListView(BaseAPIView):
             })
         
         return links
-
-    def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        super().setup(request, *args, **kwargs)
-
-        filter_query = None
-
-        if not type(self.identifiers) == list:
-            raise TypeError("ListView.identifier has to be a list of lists.")
-
-        for query in self.identifiers:
-            if not type(query) == list:
-                raise TypeError("ListView.identifier has to be a list of lists.")
-            for identifier in query:
-                partial_query = {}
-
-                if (isinstance(identifier, tuple)):
-                    (url_identifier, model_identifier) = identifier
-                else:
-                    url_identifier = identifier
-                    model_identifier = identifier
-                
-                if url_identifier == 'USERID':
-                    partial_query[model_identifier] = request.user.id
-                elif url_identifier in kwargs.keys():
-                    partial_query[model_identifier] = kwargs[url_identifier]
-                
-                if partial_query:
-                    filter_query = (filter_query | Q(**partial_query)) \
-                        if filter_query is not None else Q(**partial_query)
-        
-        try:
-            self.instances = self.model.objects.filter(filter_query)
-            self.total = self.instances.count()
-            if self.total > self.per_page:
-                self.paginated = True
-                self.page = int(request.GET['page']) if 'page' in request.GET else 1
-                first = (self.page - 1)*self.per_page
-                last = min(first + self.per_page, self.instances.count())
-                self.instances = self.instances.all()[first:last]
-        except Exception as e:
-            return JsonResponse({"original_exception": repr(e)}, status=404)
     
     def get(self, request, *args, **kwargs):
         items = [x.serialize() for x in self.instances]
@@ -295,7 +298,7 @@ class ListView(BaseAPIView):
         return JsonResponse(response)
 
 
-class TemplateView(BaseAPIView):
+class TemplateView(SingleViewBase):
     """Retrieve an object from the database based on the URL query, and render
     a template with it.
     """
@@ -310,32 +313,9 @@ class TemplateView(BaseAPIView):
 
     template: str
     """Template name to use for this view.
+
+    TODO: Allow user to specify custom theme.
     """
-
-    def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        """Set up `self.instance`.
-
-        Sets up the view according to the `identifiers` object, `request`, and
-        URL arguments.
-        """
-
-        super().setup(request, *args, **kwargs)
-        
-        model_kwargs = {}
-        for identifier in self.identifiers:
-            if (isinstance(identifier, tuple)):
-                (url_identifier, model_identifier) = identifier
-            else:
-                url_identifier = identifier
-                model_identifier = identifier
-            
-            if url_identifier in kwargs.keys():
-                model_kwargs[model_identifier] = kwargs[url_identifier]
-        
-        try:
-            self.instance = self.model.objects.get(**model_kwargs)
-        except Exception as e:
-            return self.notFound
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         response = render(request, self.template, {
