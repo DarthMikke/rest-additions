@@ -318,9 +318,13 @@ class TemplateView(SingleViewBase):
     """
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
-        response = render(request, self.template, {
-            "model": self.instance
-        })
+        context = self.get_context_data(**kwargs)
+        response = render(request, self.template, context)
 
         return response
+
+    def get_context_data(self, **kwargs):
+        return {
+            "models": self.instances
+        }
 
