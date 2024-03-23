@@ -305,6 +305,31 @@ class TemplateView(SingleViewBase):
     a template with it.
     """
 
+    notFound = HttpResponse("Not found.", status=404)
+    """Response to serve in case no object instance corresponds to the query. 
+    """
+
+    template: str
+    """Template name to use for this view.
+
+    TODO: Allow user to specify custom theme.
+    """
+
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        context = self.get_context_data(**kwargs)
+        response = render(request, self.template, context)
+
+        return response
+
+    def get_context_data(self, **kwargs):
+        return {
+            "model": self.instance
+        }
+
+
+class TemplateListView(ListViewBase):
+    """Retrieve an object from the database based on the URL query, and render
+    a template with it.
     """
 
     notFound = HttpResponse("Not found.", status=404)
