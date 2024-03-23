@@ -65,6 +65,10 @@ class APIViewBase(View):
 
 
 class SingleViewBase(APIViewBase):
+    instance: django.db.models.Model = None
+    """`django.db.models.Model` - instance of the model
+    """
+
     def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         """Set up `self.instance`.
 
@@ -92,6 +96,8 @@ class SingleViewBase(APIViewBase):
 
 
 class ListViewBase(APIViewBase):
+    instances = []
+
     def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         super().setup(request, *args, **kwargs)
 
@@ -138,10 +144,6 @@ class CRUDView(SingleViewBase):
     """Endpoint implementing CRUD operations on models matching the query.
 
     Supported methods are `GET`, `PUT`, `PATCH`, `DELETE`.
-    """
-
-    instance: django.db.models.Model = ...
-    """`django.db.models.Model` - instance of the model
     """
 
     notFound = JsonResponse({"error": "Not found"}, status=404)
@@ -303,8 +305,6 @@ class TemplateView(SingleViewBase):
     a template with it.
     """
 
-    instance: "django.db.models.Model" = ...
-    """instance of the model
     """
 
     notFound = HttpResponse("Not found.", status=404)
