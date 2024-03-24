@@ -328,7 +328,7 @@ class TemplateView(SingleViewBase):
 
 
 class TemplateListView(ListViewBase):
-    """Retrieve an object from the database based on the URL query, and render
+    """Retrieve a set of objects from the database based on the URL query, and render
     a template with it.
     """
 
