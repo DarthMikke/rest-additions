@@ -96,6 +96,8 @@ class SingleViewBase(APIViewBase):
 
 
 class ListViewBase(APIViewBase):
+
+    per_page = 20
     instances = []
 
     def setup(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
@@ -265,8 +267,6 @@ class ListView(ListViewBase):
     embedded: dict = ...
     """dictionary of items to include in the _embed field of the response
     """
-
-    per_page = 20
 
     def generate_links(self, *args, **kwargs):
         links = super().generate_links(*args, **kwargs)
