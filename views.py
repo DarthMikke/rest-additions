@@ -49,7 +49,7 @@ class APIViewBase(View):
     Each link is defined by a tuple containing:
         - the Django view name as the first element
         - as the second element, dict with django URL parameter names
-          as keys and parameter values as dict values. 
+          as keys and parameter values as dict values.
     """
 
     def generate_links(self, *args, **kwargs):
@@ -86,7 +86,7 @@ class SingleViewBase(APIViewBase):
         """
 
         super().setup(request, *args, **kwargs)
-        
+
         model_kwargs = {}
         for identifier in self.identifiers:
             if (isinstance(identifier, tuple)):
@@ -94,10 +94,10 @@ class SingleViewBase(APIViewBase):
             else:
                 url_identifier = identifier
                 model_identifier = identifier
-            
+
             if url_identifier in kwargs.keys():
                 model_kwargs[model_identifier] = kwargs[url_identifier]
-        
+
         try:
             self.instance = self.model.objects.get(**model_kwargs)
         except Exception as e:
@@ -114,11 +114,11 @@ class ListViewBase(APIViewBase):
 
         filter_query = None
 
-        if not type(self.identifiers) == list:
+        if not type(self.identifiers) is list:
             raise TypeError("ListView.identifier has to be a list of lists.")
 
         for query in self.identifiers:
-            if not type(query) == list:
+            if not type(query) is list:
                 raise TypeError("ListView.identifier has to be a list of lists.")
             for identifier in query:
                 partial_query = {}
@@ -128,22 +128,23 @@ class ListViewBase(APIViewBase):
                 else:
                     url_identifier = identifier
                     model_identifier = identifier
-                
+
                 if url_identifier == 'USERID':
                     partial_query[model_identifier] = request.user.id
                 elif url_identifier in kwargs.keys():
                     partial_query[model_identifier] = kwargs[url_identifier]
-                
+
                 if partial_query:
                     filter_query = (filter_query | Q(**partial_query)) \
                         if filter_query is not None else Q(**partial_query)
-        
+
         try:
             self.instances = self.model.objects.filter(filter_query)
             self.total = self.instances.count()
             if self.total > self.per_page:
                 self.paginated = True
-                self.page = int(request.GET['page']) if 'page' in request.GET else 1
+                self.page = int(request.GET['page']) \
+                    if 'page' in request.GET else 1
                 first = (self.page - 1)*self.per_page
                 last = min(first + self.per_page, self.instances.count())
                 self.instances = self.instances.all()[first:last]
@@ -180,22 +181,24 @@ class CRUDView(SingleViewBase):
                 field = field[0]
             if field not in parsed_body.keys():
                 raise KeyError(f"Required value {field} is not provided.")
-        # Check if every field provided in request exists in the model definition
+        # Check if every field provided in request exists in the model
+        # definition
         for field in parsed_body.keys():
-            put_fields = [x[0] if (type(x) is tuple) else x for x in self.put_fields]
+            put_fields = [x[0] if (type(x) is tuple) else x
+                          for x in self.put_fields]
             if field not in put_fields:
                 raise KeyError(f"Provided value {field} is not defined.")
-        
+
         # Overwrite
         try:
             for field in self.model.SerializerMeta.deserializer_fields:
-                if type(field) == tuple:
+                if type(field) is tuple:
                     (keyword, transform) = field
                     parsed_body[keyword] = transform(parsed_body[keyword])
             instance = self.model(**parsed_body)
         except Exception as e:
             return JsonResponse({"error": repr(e)}, status=422)
-        
+
         # Save the instance
         try:
             instance.save()
@@ -209,18 +212,19 @@ class CRUDView(SingleViewBase):
         # Retrieve instance or 404
         if not self.instance:
             return self.notFound
-        
+
         parsed_body = json.loads(request.body)
-        
-        # Check if every field provided in request exists in the model definition
+
+        # Check if every field provided in request exists in the model
+        # definition
         for field in parsed_body.keys():
             if field not in self.writable_fields:
                 raise KeyError(f"Provided value {field} is not defined.")
-        
+
         for field in self.model.SerializerMeta.deserializer_fields:
             if field not in parsed_body.keys():
                 continue
-            if type(field) == tuple:
+            if type(field) is tuple:
                 (keyword, transform) = field
                 parsed_body[keyword] = transform(parsed_body[keyword])
         # Overwrite
@@ -229,7 +233,7 @@ class CRUDView(SingleViewBase):
                 self.instance.__setattr__(field, parsed_body[field])
             except Exception as e:
                 raise KeyError(f"Provided value {field} is not defined.")
-        
+
         # Save the instance
         try:
             self.instance.save()
@@ -287,9 +291,9 @@ class ListView(ListViewBase):
                 'next': '',
                 'final': '',
             })
-        
+
         return links
-    
+
     def get(self, request, *args, **kwargs):
         items = [x.serialize() for x in self.instances]
         response = {
@@ -301,11 +305,11 @@ class ListView(ListViewBase):
             response['offset'] = self.page * self.per_page
         if self.links is not None:
             response["_links"] = self.generate_links(*args, **kwargs)
-        if type(self.embedded) == dict:
+        if type(self.embedded) is dict:
             response["_embedded"] = self.embedded
-        
+
         print(response)
-        
+
         return JsonResponse(response)
 
 
@@ -315,7 +319,7 @@ class TemplateView(SingleViewBase):
     """
 
     notFound = HttpResponse("Not found.", status=404)
-    """Response to serve in case no object instance corresponds to the query. 
+    """Response to serve in case no object instance corresponds to the query.
     """
 
     template: str
@@ -337,12 +341,12 @@ class TemplateView(SingleViewBase):
 
 
 class TemplateListView(ListViewBase):
-    """Retrieve a set of objects from the database based on the URL query, and render
-    a template with it.
+    """Retrieve a set of objects from the database based on the URL query,
+    and render a template with it.
     """
 
     notFound = HttpResponse("Not found.", status=404)
-    """Response to serve in case no object instance corresponds to the query. 
+    """Response to serve in case no object instance corresponds to the query.
     """
 
     template: str
@@ -361,4 +365,3 @@ class TemplateListView(ListViewBase):
         return {
             "models": self.instances
         }
-
