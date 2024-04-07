@@ -24,9 +24,18 @@ class APIViewBase(View):
 
     identifiers: list = ...
     """
-    `list[list[tuple[str, dict]]]`) -- Description of how the model is to
-    be retrieved from the database. This parameter is a list of tuples with
-    URL query variable and model field name.
+    `list[dict]`) -- List of queries to execute. You can filter for any
+    and every property of the model, and execute several queries in
+    a single view.
+
+    Every query consists of several identifiers from URL kwargs and query args.
+    The following example will return all instances of the model where
+    instances' `user` field has an `id` property that is the same as `user`
+    URL or query arg.
+
+    ```
+    identifiers = [{'user__id', 'user'}]
+    ```
     """
 
     links: Union[dict, None] = None
