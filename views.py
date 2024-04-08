@@ -87,10 +87,12 @@ class SingleViewBase(APIViewBase):
 
         super().setup(request, *args, **kwargs)
 
+        # @todo allow multiple querysets, pick first matching item.
+
         model_kwargs = {}
         for identifier in self.identifiers:
             if (isinstance(identifier, tuple)):
-                (url_identifier, model_identifier) = identifier
+                (model_identifier, url_identifier) = identifier
             else:
                 url_identifier = identifier
                 model_identifier = identifier
@@ -124,7 +126,7 @@ class ListViewBase(APIViewBase):
                 partial_query = {}
 
                 if (isinstance(identifier, tuple)):
-                    (url_identifier, model_identifier) = identifier
+                    (model_identifier, url_identifier) = identifier
                 else:
                     url_identifier = identifier
                     model_identifier = identifier
