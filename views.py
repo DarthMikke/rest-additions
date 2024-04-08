@@ -133,6 +133,11 @@ class ListViewBase(APIViewBase):
                     partial_query[model_identifier] = request.user.id
                 elif url_identifier in kwargs.keys():
                     partial_query[model_identifier] = kwargs[url_identifier]
+                elif url_identifier in request.GET.keys():
+                    partial_query[model_identifier] = \
+                        request.GET[url_identifier]
+                elif url_identifier[0] == "%":
+                    partial_query[model_identifier] = url_identifier[1:]
 
                 if partial_query:
                     filter_query = (filter_query | Q(**partial_query)) \
