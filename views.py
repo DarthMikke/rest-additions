@@ -335,7 +335,7 @@ class TemplateView(SingleViewBase):
     """Response to serve in case no object instance corresponds to the query.
     """
 
-    template: str
+    template_name: str
     """Template name to use for this view.
 
     TODO: Allow user to specify custom theme.
@@ -343,7 +343,7 @@ class TemplateView(SingleViewBase):
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         context = self.get_context_data(**kwargs)
-        response = render(request, self.template, context)
+        response = render(request, self.template_name, context)
 
         return response
 
@@ -362,7 +362,7 @@ class TemplateListView(ListViewBase):
     """Response to serve in case no object instance corresponds to the query.
     """
 
-    template: str
+    template_name: str
     """Template name to use for this view.
 
     TODO: Allow user to specify custom theme.
@@ -370,7 +370,7 @@ class TemplateListView(ListViewBase):
 
     def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         context = self.get_context_data(**kwargs)
-        response = render(request, self.template, context)
+        response = render(request, self.template_name, context)
 
         return response
 
