@@ -152,7 +152,7 @@ class ListViewBase(APIViewBase):
                         if filter_query is not None else Q(**partial_query)
 
         try:
-            self.instances = self.model.objects.filter(filter_query)
+            self.instances = self.model.objects.filter(filter_query) if filter_query is not None else self.model.objects.all()
             self.total = self.instances.count()
             if self.total > self.per_page:
                 self.paginated = True
