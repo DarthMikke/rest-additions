@@ -122,12 +122,12 @@ class ListViewBase(APIViewBase):
         filter_query = None
 
         if not type(self.identifiers) is list:
-            raise TypeError("ListView.identifier has to be a list of lists.")
+            raise TypeError("ListView.identifiers has to be a list of lists.")
 
         for query in self.identifiers:
             if not type(query) is list:
                 raise TypeError(
-                    "ListView.identifier has to be a list of lists.")
+                    "ListView.identifiers has to be a list of lists.")
             for identifier in query:
                 partial_query = {}
 
